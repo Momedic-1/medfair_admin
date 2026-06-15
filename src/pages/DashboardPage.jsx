@@ -15,7 +15,7 @@ import { DashboardChartCard } from "../components/ui/DashboardChartCard";
 import { formatNaira } from "../utils/format";
 import { StatusBadge } from "../components/ui/Badge";
 import { ROLE_LABELS, STAFF_ROLES } from "../constants/roles";
-import { api } from "../api/client";
+import { api, API_BASE } from "../api/client";
 
 export default function DashboardPage() {
   const { user, isAuthenticated } = useAuth();
@@ -74,7 +74,12 @@ export default function DashboardPage() {
       }
 
       if (errors.length) {
-        setError(`Could not load dashboard ${errors.join(" and ")}. Check that the backend is running on port 8081.`);
+        const detail = statsRes.status === "rejected" ? statsRes.reason?.message : null;
+        setError(
+          detail
+            ? `Could not load dashboard ${errors.join(" and ")}: ${detail}`
+            : `Could not load dashboard ${errors.join(" and ")}. Check that the API is reachable at ${API_BASE}.`
+        );
       }
 
       setLoading(false);

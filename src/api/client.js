@@ -1,4 +1,9 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8081";
+const PRODUCTION_API_URL = "https://backend-h3k6.onrender.com";
+
+/** Dev uses localhost; production uses VITE_API_URL or the Render backend (never localhost). */
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? PRODUCTION_API_URL : "http://localhost:8081");
 
 function getToken() {
   try {
