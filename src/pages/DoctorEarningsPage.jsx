@@ -1,30 +1,45 @@
 import { useEffect, useState } from "react";
 import { PageHeader, FilterBar, FilterField } from "../components/ui/PageHeader";
 import { DataTable } from "../components/ui/DataTable";
+import { Pagination } from "../components/ui/Pagination";
 import { formatNaira } from "../utils/format";
 import { api } from "../api/client";
+
+const PAGE_SIZE = 20;
 
 export default function DoctorEarningsPage() {
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    setLoading(true);
     Promise.all([
-      api.getDoctorEarnings({ search: search || undefined }),
+      api.getDoctorEarnings({ search: search || undefined, page, pageSize: PAGE_SIZE }),
       api.getDoctorEarningsSummary(),
     ])
-      .then(([list, sum]) => {
-        setRows(list);
+      .then(([result, sum]) => {
+        setRows(result.items || []);
+        setTotal(result.total || 0);
+        setTotalPages(result.totalPages || 0);
         setSummary(sum);
       })
       .catch(() => {
         setRows([]);
+        setTotal(0);
+        setTotalPages(0);
         setSummary(null);
       })
       .finally(() => setLoading(false));
-  }, [search]);
+  }, [search, page]);
 
   const columns = [
     { key: "doctorName", label: "Doctor" },
@@ -49,8 +64,15 @@ export default function DoctorEarningsPage() {
           <input className="input-field" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Doctor name..." />
         </FilterField>
       </FilterBar>
-      <p className="mb-3 text-sm text-slate-500">{loading ? "Loading..." : `${rows.length} doctor(s)`}</p>
       <DataTable columns={columns} data={rows} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        loading={loading}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

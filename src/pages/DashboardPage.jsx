@@ -39,7 +39,7 @@ export default function DashboardPage() {
         api.getDashboardStats(),
         api.getDashboardAnalytics(),
         api.getComplaints({ status: "open", limit: 3 }),
-        api.getConsultations({ limit: 3 }),
+        api.getConsultations({ limit: 3, date: new Date().toLocaleDateString("en-CA") }),
       ]);
 
       if (cancelled) return;
@@ -166,10 +166,10 @@ export default function DashboardPage() {
           )}
 
           <div className={`card ${!(role === STAFF_ROLES.SUPER_ADMIN || role === STAFF_ROLES.CUSTOMER_SERVICE) ? "lg:col-span-2" : ""}`}>
-            <h3 className="mb-4 font-semibold text-slate-800">Recent Consultations</h3>
+            <h3 className="mb-4 font-semibold text-slate-800">Today's Consultations</h3>
             <div className="space-y-3">
               {recentConsultations.length === 0 ? (
-                <p className="text-sm text-slate-400">No recent consultations</p>
+                <p className="text-sm text-slate-400">No consultations today</p>
               ) : (
                 recentConsultations.map((c) => (
                   <div key={c.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-100 p-3">

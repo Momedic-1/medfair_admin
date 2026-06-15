@@ -41,8 +41,8 @@ export function AuthProvider({ children }) {
 
   const refreshStaffUsers = async () => {
     if (!["SUPER_ADMIN", "TECHNICAL"].includes(user?.role)) return;
-    const list = await api.getStaffUsers();
-    setStaffUsers(list);
+    const result = await api.getStaffUsers({ page: 1, pageSize: 20 });
+    setStaffUsers(result.items || []);
   };
 
   useEffect(() => {

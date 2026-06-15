@@ -1,12 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { PageHeader, FilterBar, FilterField } from "../components/ui/PageHeader";
 import { DataTable } from "../components/ui/DataTable";
+import { Pagination } from "../components/ui/Pagination";
 import { Modal } from "../components/ui/Modal";
 import { RoleBadge } from "../components/ui/Badge";
 import { STAFF_ROLES, ROLE_LABELS } from "../constants/roles";
 import { formatDate } from "../utils/format";
+import { api } from "../api/client";
+
+const PAGE_SIZE = 20;
 
 const ASSIGNABLE_ROLES = {
   [STAFF_ROLES.SUPER_ADMIN]: Object.entries(ROLE_LABELS),
@@ -14,11 +18,17 @@ const ASSIGNABLE_ROLES = {
 };
 
 export default function StaffUsersPage() {
-  const { user, staffUsers, createStaffUser, toggleStaffActive, resetStaffPassword } = useAuth();
+  const { user, createStaffUser, toggleStaffActive, resetStaffPassword } = useAuth();
   const isSuperAdmin = user?.role === STAFF_ROLES.SUPER_ADMIN;
   const canResetPasswords = [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.TECHNICAL].includes(user?.role);
   const roleOptions = ASSIGNABLE_ROLES[user?.role] || [];
 
+  const [staffUsers, setStaffUsers] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPassword, setResetPassword] = useState("");
@@ -34,15 +44,39 @@ export default function StaffUsersPage() {
   const [resetError, setResetError] = useState("");
   const [search, setSearch] = useState("");
 
-  const filteredStaffUsers = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return staffUsers;
-    return staffUsers.filter(
-      (staff) =>
-        staff.fullName?.toLowerCase().includes(query) ||
-        staff.email?.toLowerCase().includes(query),
-    );
-  }, [staffUsers, search]);
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const result = await api.getStaffUsers({
+          search: search || undefined,
+          page,
+          pageSize: PAGE_SIZE,
+        });
+        if (!cancelled) {
+          setStaffUsers(result.items || []);
+          setTotal(result.total || 0);
+          setTotalPages(result.totalPages || 0);
+        }
+      } catch {
+        if (!cancelled) {
+          setStaffUsers([]);
+          setTotal(0);
+          setTotalPages(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [search, page, refreshKey]);
+
+  const reload = () => setRefreshKey((k) => k + 1);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -53,6 +87,7 @@ export default function StaffUsersPage() {
       setSuccess(`Staff user ${form.fullName} created successfully.`);
       setForm({ fullName: "", email: "", password: "", role: STAFF_ROLES.CUSTOMER_SERVICE });
       setModalOpen(false);
+      reload();
     } catch (err) {
       setError(err.message);
     }
@@ -82,6 +117,7 @@ export default function StaffUsersPage() {
       await resetStaffPassword(resetTarget.id, resetPassword);
       setSuccess(`Password reset for ${resetTarget.fullName}.`);
       setResetTarget(null);
+      reload();
     } catch (err) {
       setResetError(err.message);
     }
@@ -120,7 +156,7 @@ export default function StaffUsersPage() {
                 {isSuperAdmin && (
                   <button
                     type="button"
-                    onClick={() => toggleStaffActive(r.id).catch(() => {})}
+                    onClick={() => toggleStaffActive(r.id).then(reload).catch(() => {})}
                     className="text-sm font-medium text-medfair hover:underline"
                   >
                     {r.active ? "Deactivate" : "Activate"}
@@ -167,11 +203,15 @@ export default function StaffUsersPage() {
         </FilterField>
       </FilterBar>
 
-      <p className="mb-3 text-sm text-slate-500">
-        {filteredStaffUsers.length} of {staffUsers.length} staff user(s)
-      </p>
-
-      <DataTable columns={columns} data={filteredStaffUsers} />
+      <DataTable columns={columns} data={staffUsers} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        loading={loading}
+        onPageChange={setPage}
+      />
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Create Staff User" wide>
         <form onSubmit={handleCreate} className="space-y-4">

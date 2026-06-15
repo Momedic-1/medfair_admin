@@ -85,7 +85,7 @@ export const api = {
       body: JSON.stringify({ balance, reason }),
     }),
 
-  getStaffUsers: () => request("/api/internal/staff"),
+  getStaffUsers: (params = {}) => request(`/api/internal/staff${buildQuery(params)}`),
 
   createStaffUser: (payload) =>
     request("/api/internal/staff", {

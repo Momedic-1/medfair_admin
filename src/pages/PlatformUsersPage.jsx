@@ -1,16 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye } from "lucide-react";
 import { PageHeader, FilterBar, FilterField } from "../components/ui/PageHeader";
 import { DataTable } from "../components/ui/DataTable";
+import { Pagination } from "../components/ui/Pagination";
 import { StatusBadge } from "../components/ui/Badge";
 import { UserDetailModal } from "../components/users/UserDetailModal";
 import { formatDate } from "../utils/format";
 import { api } from "../api/client";
 import { useOrganizations } from "../context/OrganizationsContext";
 
+const PAGE_SIZE = 20;
+
 export default function PlatformUsersPage() {
   const { organizations } = useOrganizations();
   const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -20,17 +26,30 @@ export default function PlatformUsersPage() {
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
+    setPage(1);
+  }, [search, roleFilter, orgFilter, statusFilter]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError("");
       try {
-        const list = await api.getPlatformUsers({
+        const organizationId =
+          orgFilter === "all" ? undefined : orgFilter === "none" ? 0 : Number(orgFilter);
+        const result = await api.getPlatformUsers({
           search: search || undefined,
           role: roleFilter !== "all" ? roleFilter : undefined,
+          organizationId,
           status: statusFilter !== "all" ? statusFilter : undefined,
+          page,
+          pageSize: PAGE_SIZE,
         });
-        if (!cancelled) setUsers(list);
+        if (!cancelled) {
+          setUsers(result.items || []);
+          setTotal(result.total || 0);
+          setTotalPages(result.totalPages || 0);
+        }
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -38,15 +57,7 @@ export default function PlatformUsersPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [search, roleFilter, statusFilter]);
-
-  const filtered = useMemo(() => {
-    return users.filter((user) => {
-      if (orgFilter === "all") return true;
-      if (orgFilter === "none") return !user.organization;
-      return user.organization === orgFilter;
-    });
-  }, [users, orgFilter]);
+  }, [search, roleFilter, orgFilter, statusFilter, page]);
 
   const openUser = async (user) => {
     try {
@@ -85,7 +96,7 @@ export default function PlatformUsersPage() {
     <div>
       <PageHeader
         title="Platform Users"
-        description="Patients and doctors registered on the MedFair platform."
+        description="Patients and doctors registered on the MedFair platform, including organization enrollees."
       />
 
       <FilterBar>
@@ -103,7 +114,7 @@ export default function PlatformUsersPage() {
           <select className="input-field" value={orgFilter} onChange={(e) => setOrgFilter(e.target.value)}>
             <option value="all">All organizations</option>
             {organizations.map((org) => (
-              <option key={org.id} value={org.name}>{org.name}</option>
+              <option key={org.id} value={org.id}>{org.name}</option>
             ))}
             <option value="none">No organization</option>
           </select>
@@ -119,8 +130,15 @@ export default function PlatformUsersPage() {
       </FilterBar>
 
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-      <p className="mb-3 text-sm text-slate-500">{loading ? "Loading..." : `${filtered.length} user(s) found`}</p>
-      <DataTable columns={columns} data={filtered} onRowClick={openUser} />
+      <DataTable columns={columns} data={users} onRowClick={openUser} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        loading={loading}
+        onPageChange={setPage}
+      />
 
       <UserDetailModal user={selectedUser} open={!!selectedUser} onClose={() => setSelectedUser(null)} />
     </div>
