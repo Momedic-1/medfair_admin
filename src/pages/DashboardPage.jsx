@@ -35,68 +35,42 @@ export default function DashboardPage() {
       setLoading(true);
       setError("");
 
-      const results = await Promise.allSettled([
-        api.getDashboardStats(),
-        api.getDashboardAnalytics(),
-        api.getComplaints({ status: "open", limit: 3 }),
-        api.getConsultations({ limit: 3, date: new Date().toLocaleDateString("en-CA") }),
-      ]);
+      try {
+        const overview = await api.getDashboardOverview();
+        if (cancelled) return;
 
-      if (cancelled) return;
-
-      const [statsRes, analyticsRes, complaintsRes, consultationsRes] = results;
-      const errors = [];
-
-      if (statsRes.status === "fulfilled") {
-        setStats(statsRes.value);
-      } else {
+        setStats(overview.stats ?? null);
+        setAnalytics(overview.analytics ?? []);
+        setComplaints(overview.recentComplaints ?? []);
+        setConsultations(overview.todayConsultations ?? []);
+      } catch (err) {
+        if (cancelled) return;
         setStats(null);
-        errors.push("stats");
-      }
-
-      if (analyticsRes.status === "fulfilled") {
-        setAnalytics(analyticsRes.value);
-      } else {
         setAnalytics([]);
-        errors.push("analytics");
-      }
-
-      if (complaintsRes.status === "fulfilled") {
-        setComplaints(complaintsRes.value);
-      } else {
         setComplaints([]);
-      }
-
-      if (consultationsRes.status === "fulfilled") {
-        setConsultations(consultationsRes.value);
-      } else {
         setConsultations([]);
-      }
-
-      if (errors.length) {
-        const detail = statsRes.status === "rejected" ? statsRes.reason?.message : null;
         setError(
-          detail
-            ? `Could not load dashboard ${errors.join(" and ")}: ${detail}`
-            : `Could not load dashboard ${errors.join(" and ")}. Check that the API is reachable at ${API_BASE}.`
+          err?.message
+            ? `Could not load dashboard: ${err.message}`
+            : `Could not load dashboard. Check that the API is reachable at ${API_BASE}.`
         );
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      setLoading(false);
     })();
 
     return () => { cancelled = true; };
   }, [isAuthenticated]);
 
   const statCards = [
-    { title: "Total Users", value: stats?.totalUsers?.toLocaleString() ?? "—", icon: Users, accent: "primary", roles: Object.values(STAFF_ROLES) },
-    { title: "Active Subscriptions", value: stats?.subscribedUsers?.toLocaleString() ?? "—", icon: CreditCard, accent: "green", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.FINANCE, STAFF_ROLES.OPERATIONS, STAFF_ROLES.CUSTOMER_SERVICE] },
-    { title: "Active Doctors", value: stats?.activeDoctors ?? "—", icon: Stethoscope, accent: "primary", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CLINICAL_OPS, STAFF_ROLES.OPERATIONS] },
-    { title: "Open Complaints", value: stats?.openComplaints ?? "—", icon: MessageSquareWarning, accent: "rose", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CUSTOMER_SERVICE] },
-    { title: "Today's Consultations", value: stats?.todayConsultations ?? "—", icon: CalendarDays, accent: "primary", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CUSTOMER_SERVICE, STAFF_ROLES.CLINICAL_OPS, STAFF_ROLES.OPERATIONS] },
-    { title: "Monthly Revenue", value: stats ? formatNaira(Number(stats.monthlyRevenue)) : "—", icon: Wallet, accent: "green", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.FINANCE, STAFF_ROLES.OPERATIONS] },
-    { title: "Pending Verifications", value: stats?.pendingVerifications ?? "—", icon: AlertCircle, accent: "amber", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CLINICAL_OPS, STAFF_ROLES.OPERATIONS] },
-    { title: "Partner Orgs", value: stats?.orgPartners ?? "—", icon: Building2, accent: "amber", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.OPERATIONS, STAFF_ROLES.FINANCE] },
+    { title: "Total Users", value: stats?.totalUsers?.toLocaleString() ?? (loading ? "…" : "—"), icon: Users, accent: "primary", roles: Object.values(STAFF_ROLES) },
+    { title: "Active Subscriptions", value: stats?.subscribedUsers?.toLocaleString() ?? (loading ? "…" : "—"), icon: CreditCard, accent: "green", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.FINANCE, STAFF_ROLES.OPERATIONS, STAFF_ROLES.CUSTOMER_SERVICE] },
+    { title: "Active Doctors", value: stats?.activeDoctors ?? (loading ? "…" : "—"), icon: Stethoscope, accent: "primary", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CLINICAL_OPS, STAFF_ROLES.OPERATIONS] },
+    { title: "Open Complaints", value: stats?.openComplaints ?? (loading ? "…" : "—"), icon: MessageSquareWarning, accent: "rose", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CUSTOMER_SERVICE] },
+    { title: "Today's Consultations", value: stats?.todayConsultations ?? (loading ? "…" : "—"), icon: CalendarDays, accent: "primary", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CUSTOMER_SERVICE, STAFF_ROLES.CLINICAL_OPS, STAFF_ROLES.OPERATIONS] },
+    { title: "Monthly Revenue", value: stats ? formatNaira(Number(stats.monthlyRevenue)) : (loading ? "…" : "—"), icon: Wallet, accent: "green", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.FINANCE, STAFF_ROLES.OPERATIONS] },
+    { title: "Pending Verifications", value: stats?.pendingVerifications ?? (loading ? "…" : "—"), icon: AlertCircle, accent: "amber", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.CLINICAL_OPS, STAFF_ROLES.OPERATIONS] },
+    { title: "Partner Orgs", value: stats?.orgPartners ?? (loading ? "…" : "—"), icon: Building2, accent: "amber", roles: [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.OPERATIONS, STAFF_ROLES.FINANCE] },
   ].filter((s) => s.roles.includes(role));
 
   const showRevenueChart = [STAFF_ROLES.SUPER_ADMIN, STAFF_ROLES.FINANCE, STAFF_ROLES.OPERATIONS].includes(role);
@@ -108,7 +82,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-medfair">Welcome back, {user?.fullName?.split(" ")[0]}</h1>
         <p className="mt-1 text-sm text-slate-500">Signed in as {ROLE_LABELS[role]}</p>
-        {loading && <p className="mt-2 text-sm text-slate-400">Loading dashboard data...</p>}
+        {loading && <p className="mt-2 text-sm text-slate-400">Loading dashboard…</p>}
         {error && <p className="mt-2 text-sm text-amber-700">{error}</p>}
       </div>
 
@@ -148,7 +122,9 @@ export default function DashboardPage() {
             <div className="card">
               <h3 className="mb-4 font-semibold text-slate-800">Recent Complaints</h3>
               <div className="space-y-3">
-                {recentComplaints.length === 0 ? (
+                {loading ? (
+                  <p className="text-sm text-slate-400">Loading…</p>
+                ) : recentComplaints.length === 0 ? (
                   <p className="text-sm text-slate-400">No open complaints</p>
                 ) : (
                   recentComplaints.map((c) => (
@@ -168,7 +144,9 @@ export default function DashboardPage() {
           <div className={`card ${!(role === STAFF_ROLES.SUPER_ADMIN || role === STAFF_ROLES.CUSTOMER_SERVICE) ? "lg:col-span-2" : ""}`}>
             <h3 className="mb-4 font-semibold text-slate-800">Today's Consultations</h3>
             <div className="space-y-3">
-              {recentConsultations.length === 0 ? (
+              {loading ? (
+                <p className="text-sm text-slate-400">Loading…</p>
+              ) : recentConsultations.length === 0 ? (
                 <p className="text-sm text-slate-400">No consultations today</p>
               ) : (
                 recentConsultations.map((c) => (

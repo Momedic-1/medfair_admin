@@ -98,6 +98,8 @@ export const api = {
 
   getDashboardStats: () => request("/api/internal/dashboard/stats"),
 
+  getDashboardOverview: () => request("/api/internal/dashboard/overview"),
+
   getDashboardAnalytics: (from, to) =>
     request(`/api/internal/dashboard/analytics${buildQuery({ from, to })}`),
 
@@ -117,6 +119,8 @@ export const api = {
 
   getPayments: (params = {}) =>
     request(`/api/internal/payments${buildQuery(params)}`),
+
+  getPaymentsSummary: () => request("/api/internal/payments/summary"),
 
   getDoctorEarnings: (params = {}) =>
     request(`/api/internal/doctor-earnings${buildQuery(params)}`),
