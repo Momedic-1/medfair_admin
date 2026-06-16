@@ -1,4 +1,4 @@
-export function Pagination({ page, totalPages, total, pageSize, onPageChange, loading = false }) {
+export function Pagination({ page, totalPages, total = 0, pageSize = 20, onPageChange, loading = false }) {
   if (!totalPages || totalPages <= 1) return null;
 
   const pages = buildPageNumbers(page, totalPages);
@@ -6,7 +6,7 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, lo
   return (
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-slate-500">
-        {loading ? "Loading..." : `${total.toLocaleString()} total � Page ${page} of ${totalPages} � ${pageSize} per page`}
+        {loading ? "Loading..." : `${total.toLocaleString()} total · Page ${page} of ${totalPages} · ${pageSize} per page`}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -19,7 +19,7 @@ export function Pagination({ page, totalPages, total, pageSize, onPageChange, lo
         </button>
         {pages.map((p) =>
           p === "..." ? (
-            <span key={`gap-${p}-${Math.random()}`} className="px-2 text-slate-400">& </span>
+            <span key={`gap-${p}-${Math.random()}`} className="px-2 text-slate-400">…</span>
           ) : (
             <button
               key={p}

@@ -108,7 +108,14 @@ export default function PaymentsPage() {
         {loading ? "Loading..." : `${total} payment(s)`}
       </p>
       <DataTable columns={columns} data={rows} />
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        loading={loading}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

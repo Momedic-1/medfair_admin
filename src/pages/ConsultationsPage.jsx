@@ -76,7 +76,14 @@ export default function ConsultationsPage() {
         {loading ? "Loading..." : `${total} consultation(s)`}
       </p>
       <DataTable columns={columns} data={rows} />
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={PAGE_SIZE}
+        loading={loading}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

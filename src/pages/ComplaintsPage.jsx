@@ -251,9 +251,9 @@ export default function ComplaintsPage() {
       canUpdate ? api.getPlatformUsers().catch(() => []) : Promise.resolve([]),
     ])
       .then(([complaints, staff, users]) => {
-        setRows(complaints);
-        setAssignees(staff);
-        setPlatformUsers(users);
+        setRows(Array.isArray(complaints) ? complaints : complaints?.items || []);
+        setAssignees(Array.isArray(staff) ? staff : staff?.items || []);
+        setPlatformUsers(Array.isArray(users) ? users : users?.items || []);
       })
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
