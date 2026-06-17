@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { api, setUnauthorizedHandler } from "../api/client";
+import { parseStoredSession } from "../utils/session";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "medfair_admin_auth";
@@ -9,16 +10,25 @@ export function AuthProvider({ children }) {
   const [staffUsers, setStaffUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setUser(JSON.parse(stored));
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    } finally {
-      setLoading(false);
-    }
+  const clearSession = useCallback(() => {
+    setUser(null);
+    localStorage.removeItem(STORAGE_KEY);
   }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const session = parseStoredSession(stored);
+    if (stored && !session) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setUser(session);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(clearSession);
+    return () => setUnauthorizedHandler(null);
+  }, [clearSession]);
 
   const login = async (email, password) => {
     const res = await api.login(email, password);
@@ -29,14 +39,16 @@ export function AuthProvider({ children }) {
       role: res.role,
       token: res.token,
     };
+    if (!parseStoredSession(JSON.stringify(session))) {
+      throw new Error("Invalid login response from server");
+    }
     setUser(session);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     return session;
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
+    clearSession();
   };
 
   const refreshStaffUsers = async () => {

@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { ProtectedRoute, RoleRoute } from "./ProtectedRoute";
+import { ProtectedRoute, GuestRoute, RoleRoute } from "./ProtectedRoute";
 import { AdminLayout } from "../components/layout/AdminLayout";
 import LoginPage from "../pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
@@ -24,7 +24,7 @@ function withRole(path, element) {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
       <Route
         path="/"
         element={
@@ -49,7 +49,7 @@ export function AppRoutes() {
         <Route path="audit-trail" element={withRole("/audit-trail", <AuditTrailPage />)} />
         <Route path="settings" element={withRole("/settings", <SettingsPage />)} />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getNavForRole } from "../../constants/navigation";
 import { RoleBadge } from "../ui/Badge";
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const navItems = getNavForRole(user?.role);
@@ -15,7 +15,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex h-screen w-64 flex-col bg-gradient-to-b from-medfair via-medfair-dark to-medfair-light text-white">
+    <aside className="flex h-full w-full flex-col bg-gradient-to-b from-medfair via-medfair-dark to-medfair-light text-white">
       <div className="shrink-0 border-b border-white/10 px-6 py-5">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-lg font-bold">
@@ -36,6 +36,7 @@ export function Sidebar() {
               <NavLink
                 key={item.id}
                 to={item.path}
+                onClick={onNavigate}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                     isActive
