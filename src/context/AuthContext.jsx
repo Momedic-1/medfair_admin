@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, setUnauthorizedHandler } from "../api/client";
-import { parseStoredSession } from "../utils/session";
+import { getTokenExpiryMs, isTokenExpired, parseStoredSession } from "../utils/session";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "medfair_admin_auth";
@@ -24,6 +24,34 @@ export function AuthProvider({ children }) {
     setUser(session);
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    if (!user?.token) return undefined;
+
+    const expireIfNeeded = () => {
+      if (isTokenExpired(user.token)) {
+        clearSession();
+      }
+    };
+
+    expireIfNeeded();
+    if (isTokenExpired(user.token)) return undefined;
+
+    const expiryMs = getTokenExpiryMs(user.token);
+    const timer =
+      expiryMs != null
+        ? window.setTimeout(clearSession, Math.max(0, expiryMs - Date.now()))
+        : null;
+
+    window.addEventListener("focus", expireIfNeeded);
+    document.addEventListener("visibilitychange", expireIfNeeded);
+
+    return () => {
+      if (timer != null) window.clearTimeout(timer);
+      window.removeEventListener("focus", expireIfNeeded);
+      document.removeEventListener("visibilitychange", expireIfNeeded);
+    };
+  }, [user, clearSession]);
 
   useEffect(() => {
     setUnauthorizedHandler(clearSession);
@@ -95,7 +123,7 @@ export function AuthProvider({ children }) {
       toggleStaffActive,
       resetStaffPassword,
       refreshStaffUsers,
-      isAuthenticated: !!user,
+      isAuthenticated: !!user && !isTokenExpired(user.token),
     }),
     [user, loading, staffUsers]
   );

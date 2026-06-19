@@ -5,6 +5,8 @@ const API_BASE =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? PRODUCTION_API_URL : "http://localhost:8081");
 
+import { parseStoredSession } from "../utils/session";
+
 const STORAGE_KEY = "medfair_admin_auth";
 
 let unauthorizedHandler = null;
@@ -16,9 +18,7 @@ export function setUnauthorizedHandler(handler) {
 function getToken() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed.token || null;
+    return parseStoredSession(raw)?.token || null;
   } catch {
     return null;
   }
@@ -50,9 +50,6 @@ async function request(path, options = {}) {
   if (!res.ok) {
     if (res.status === 401 && !path.includes("/auth/login")) {
       unauthorizedHandler?.();
-      if (!window.location.pathname.startsWith("/login")) {
-        window.location.replace("/login");
-      }
     }
     const message = data?.message || data?.error || (typeof data === "string" ? data : "Request failed");
     throw new Error(message);
