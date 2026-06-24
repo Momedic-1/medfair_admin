@@ -8,11 +8,19 @@ import { UserDetailModal } from "../components/users/UserDetailModal";
 import { formatDate } from "../utils/format";
 import { api } from "../api/client";
 import { useOrganizations } from "../context/OrganizationsContext";
+import { useAuth } from "../context/AuthContext";
+import { STAFF_ROLES } from "../constants/roles";
 
 const PAGE_SIZE = 20;
 
 export default function PlatformUsersPage() {
   const { organizations } = useOrganizations();
+  const { user: staffUser } = useAuth();
+  const canAssignOrganization = [
+    STAFF_ROLES.SUPER_ADMIN,
+    STAFF_ROLES.CUSTOMER_SERVICE,
+    STAFF_ROLES.OPERATIONS,
+  ].includes(staffUser?.role);
   const [users, setUsers] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -66,6 +74,21 @@ export default function PlatformUsersPage() {
     } catch {
       setSelectedUser(user);
     }
+  };
+
+  const handleUserUpdated = (updated) => {
+    setSelectedUser(updated);
+    setUsers((prev) =>
+      prev.map((row) =>
+        row.id === updated.id
+          ? {
+              ...row,
+              organization: updated.organization,
+              organizationId: updated.organizationId,
+            }
+          : row
+      )
+    );
   };
 
   const columns = [
@@ -140,7 +163,14 @@ export default function PlatformUsersPage() {
         onPageChange={setPage}
       />
 
-      <UserDetailModal user={selectedUser} open={!!selectedUser} onClose={() => setSelectedUser(null)} />
+      <UserDetailModal
+        user={selectedUser}
+        open={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        organizations={organizations}
+        canAssignOrganization={canAssignOrganization}
+        onUserUpdated={handleUserUpdated}
+      />
     </div>
   );
 }

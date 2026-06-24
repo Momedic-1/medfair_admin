@@ -16,6 +16,7 @@ import OrganizationsPage from "../pages/OrganizationsPage";
 import AgentsPage from "../pages/AgentsPage";
 import SettingsPage from "../pages/SettingsPage";
 import AuditTrailPage from "../pages/AuditTrailPage";
+import AwadocPage from "../pages/AwadocPage";
 
 function withRole(path, element) {
   return <RoleRoute path={path}>{element}</RoleRoute>;
@@ -43,6 +44,7 @@ export function AppRoutes() {
         <Route path="payments" element={withRole("/payments", <PaymentsPage />)} />
         <Route path="complaints" element={withRole("/complaints", <ComplaintsPage />)} />
         <Route path="consultations" element={withRole("/consultations", <ConsultationsPage />)} />
+        <Route path="awadoc" element={withRole("/awadoc", <AwadocPage />)} />
         <Route path="doctor-verification" element={withRole("/doctor-verification", <DoctorVerificationPage />)} />
         <Route path="organizations" element={withRole("/organizations", <OrganizationsPage />)} />
         <Route path="agents" element={withRole("/agents", <AgentsPage />)} />

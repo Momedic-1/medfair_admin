@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { Modal } from "../ui/Modal";
 import { StatusBadge } from "../ui/Badge";
 import { formatDate } from "../../utils/format";
+import { api } from "../../api/client";
 
 function DetailRow({ label, value }) {
   return (
@@ -20,11 +22,54 @@ function Section({ title, children }) {
   );
 }
 
-export function UserDetailModal({ user, open, onClose }) {
+export function UserDetailModal({
+  user,
+  open,
+  onClose,
+  organizations = [],
+  canAssignOrganization = false,
+  onUserUpdated,
+}) {
+  const [selectedOrgId, setSelectedOrgId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    setSelectedOrgId(user.organizationId != null ? String(user.organizationId) : "");
+    setError("");
+    setSuccess("");
+  }, [user]);
+
   if (!user) return null;
 
   const isDoctor = user.role === "DOCTOR";
   const isPatient = user.role === "PATIENT";
+
+  const handleAssignOrganization = async () => {
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const organizationId = selectedOrgId ? Number(selectedOrgId) : null;
+      const updated = await api.assignPlatformUserOrganization(user.id, organizationId);
+      setSuccess(
+        organizationId
+          ? `Assigned to ${updated.organization || "organization"}.`
+          : "Organization removed."
+      );
+      onUserUpdated?.(updated);
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err) {
+      setError(err.message || "Failed to update organization");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const orgChanged =
+    (selectedOrgId || "") !== (user.organizationId != null ? String(user.organizationId) : "");
 
   return (
     <Modal open={open} onClose={onClose} title="User Profile" wide>
@@ -36,6 +81,17 @@ export function UserDetailModal({ user, open, onClose }) {
           </div>
           <StatusBadge status={user.status} />
         </div>
+
+        {error && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {success}
+          </div>
+        )}
 
         <Section title="Contact Information">
           <DetailRow label="Email" value={user.email} />
@@ -53,7 +109,39 @@ export function UserDetailModal({ user, open, onClose }) {
 
         <Section title="Account Details">
           <DetailRow label="Role" value={user.role} />
-          <DetailRow label="Organization" value={user.organization} />
+          {isPatient && canAssignOrganization ? (
+            <div className="border-b border-slate-100 py-3 last:border-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Organization</p>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  className="input-field flex-1"
+                  value={selectedOrgId}
+                  onChange={(e) => setSelectedOrgId(e.target.value)}
+                  disabled={saving}
+                >
+                  <option value="">No organization</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn-primary shrink-0"
+                  onClick={handleAssignOrganization}
+                  disabled={saving || !orgChanged}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Current: {user.organization || "Not assigned"}
+              </p>
+            </div>
+          ) : (
+            <DetailRow label="Organization" value={user.organization} />
+          )}
           <DetailRow label="Registered" value={formatDate(user.registeredAt)} />
           {user.fileNumber && <DetailRow label="File number" value={user.fileNumber} />}
           {user.referredBy && <DetailRow label="Referred by" value={user.referredBy} />}

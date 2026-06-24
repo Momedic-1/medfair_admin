@@ -24,6 +24,10 @@ export function StatusBadge({ status }) {
     high: "bg-red-100 text-red-800",
     medium: "bg-amber-100 text-amber-800",
     low: "bg-slate-100 text-slate-600",
+    SUCCESS: "bg-emerald-100 text-emerald-800",
+    PENDING: "bg-amber-100 text-amber-800",
+    EXHAUSTED: "bg-red-100 text-red-800",
+    FAILED: "bg-red-100 text-red-800",
   };
 
   const labels = {

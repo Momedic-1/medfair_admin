@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   UserPlus,
+  Radio,
 } from "lucide-react";
 import { STAFF_ROLES } from "./roles";
 
@@ -94,6 +95,19 @@ export const NAV_ITEMS = [
       STAFF_ROLES.CLINICAL_OPS,
       STAFF_ROLES.OPERATIONS,
       STAFF_ROLES.FINANCE,
+    ],
+  },
+  {
+    id: "awadoc",
+    label: "Awadoc",
+    path: "/awadoc",
+    icon: Radio,
+    roles: [
+      STAFF_ROLES.SUPER_ADMIN,
+      STAFF_ROLES.CUSTOMER_SERVICE,
+      STAFF_ROLES.CLINICAL_OPS,
+      STAFF_ROLES.OPERATIONS,
+      STAFF_ROLES.TECHNICAL,
     ],
   },
   {

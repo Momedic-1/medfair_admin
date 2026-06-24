@@ -119,6 +119,12 @@ export const api = {
 
   getPlatformUser: (id) => request(`/api/internal/platform-users/${id}`),
 
+  assignPlatformUserOrganization: (id, organizationId) =>
+    request(`/api/internal/platform-users/${id}/organization`, {
+      method: "PATCH",
+      body: JSON.stringify({ organizationId: organizationId ?? null }),
+    }),
+
   onboardPlatformUser: (payload) =>
     request("/api/internal/platform-users", {
       method: "POST",
@@ -171,6 +177,16 @@ export const api = {
   getAgents: () => request("/api/internal/agents"),
 
   getSettings: () => request("/api/internal/settings"),
+
+  getAwadocSummary: () => request("/api/internal/awadoc/summary"),
+
+  getAwadocConsultations: (params = {}) =>
+    request(`/api/internal/awadoc/consultations${buildQuery(params)}`),
+
+  getAwadocConsultation: (id) => request(`/api/internal/awadoc/consultations/${id}`),
+
+  retryPartnerOutboundWebhook: (id) =>
+    request(`/api/internal/partner-outbound-webhooks/${id}/retry`, { method: "POST" }),
 };
 
 export { API_BASE };
