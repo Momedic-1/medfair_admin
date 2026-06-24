@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Radio, RefreshCw, Wallet } from "lucide-react";
+import { CheckCircle2, Clock, Radio, RefreshCw, Wallet } from "lucide-react";
 import { PageHeader, FilterBar, FilterField } from "../components/ui/PageHeader";
 import { DataTable } from "../components/ui/DataTable";
 import { Pagination } from "../components/ui/Pagination";
@@ -253,24 +253,38 @@ export default function AwadocPage() {
         </div>
       )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Confirmed bookings"
+          value={summaryLoading ? "…" : summary?.confirmedThisMonth ?? 0}
+          subtitle={`This month · GP ${summary?.confirmedThisMonthGp ?? 0} · Specialists ${summary?.confirmedThisMonthSpecialists ?? 0}`}
+          icon={Radio}
+        />
+        <StatCard
+          title="Payment webhooks (Awadoc)"
+          value={summaryLoading ? "…" : summary?.paymentWebhooksAllTime ?? 0}
+          subtitle={`${summary?.paymentWebhooksThisMonth ?? 0} this month · Awadoc sent consultation.confirmed`}
+          icon={CheckCircle2}
+          accent="green"
+        />
         <StatCard
           title="Confirmed today"
           value={summaryLoading ? "…" : summary?.confirmedToday ?? 0}
-          subtitle={`GP ${summary?.confirmedTodayGp ?? 0} · Specialists ${summary?.confirmedTodaySpecialists ?? 0}`}
+          subtitle={`Processed in our system · GP ${summary?.confirmedTodayGp ?? 0}`}
           icon={Radio}
         />
         <StatCard
           title="Confirmed this week"
           value={summaryLoading ? "…" : summary?.confirmedThisWeek ?? 0}
-          subtitle={`GP ${summary?.confirmedThisWeekGp ?? 0} · Specialists ${summary?.confirmedThisWeekSpecialists ?? 0}`}
+          subtitle={`Processed in our system · GP ${summary?.confirmedThisWeekGp ?? 0}`}
           icon={Radio}
         />
         <StatCard
-          title="Confirmed this month"
-          value={summaryLoading ? "…" : summary?.confirmedThisMonth ?? 0}
-          subtitle={`GP ${summary?.confirmedThisMonthGp ?? 0} · Specialists ${summary?.confirmedThisMonthSpecialists ?? 0}`}
-          icon={Radio}
+          title="Awaiting confirmation"
+          value={summaryLoading ? "…" : summary?.awaitingConfirmation ?? 0}
+          subtitle="Requests received, payment not confirmed yet"
+          accent="amber"
+          icon={Clock}
         />
         <StatCard
           title="Earnings this week"
@@ -289,7 +303,15 @@ export default function AwadocPage() {
         <StatCard
           title="Pending retries"
           value={summaryLoading ? "…" : summary?.pendingOutboundRetries ?? 0}
+          subtitle="doctor_assigned callbacks queued to retry"
           accent="amber"
+          icon={RefreshCw}
+        />
+        <StatCard
+          title="Exhausted outbound"
+          value={summaryLoading ? "…" : summary?.exhaustedOutbound ?? 0}
+          subtitle="All automatic retries failed — use Retry in the table"
+          accent="rose"
           icon={RefreshCw}
         />
       </div>
