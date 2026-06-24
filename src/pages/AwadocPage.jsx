@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { CheckCircle2, Clock, Radio, RefreshCw, Wallet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, Radio, RefreshCw, Wallet } from "lucide-react";
 import { PageHeader, FilterBar, FilterField } from "../components/ui/PageHeader";
 import { DataTable } from "../components/ui/DataTable";
 import { Pagination } from "../components/ui/Pagination";
-import { StatCard } from "../components/ui/StatCard";
 import { StatusBadge } from "../components/ui/Badge";
 import { AwadocDetailModal } from "../components/awadoc/AwadocDetailModal";
+import { AwadocMetricCard } from "../components/awadoc/AwadocMetricCard";
 import { formatDateTime, formatNaira } from "../utils/format";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -22,11 +22,10 @@ const SPECIALTY_OPTIONS = [
   { value: "EAR_NOSE_THROAT_SPECIALIST", label: "ENT" },
 ];
 
-const CONFIRMED_PERIOD_OPTIONS = [
-  { value: "month", label: "This month" },
-  { value: "week", label: "This week" },
-  { value: "today", label: "Today" },
-  { value: "all", label: "All time" },
+const LIST_VIEW_OPTIONS = [
+  { value: "confirmed", label: "Confirmed bookings" },
+  { value: "awaiting", label: "Awaiting confirmation" },
+  { value: "all", label: "All requests" },
 ];
 
 const FLOW_LABELS = {
@@ -34,6 +33,69 @@ const FLOW_LABELS = {
   SPECIALIST_SLOT: "Specialist slot",
   CMO: "CMO / own time",
 };
+
+const PERIOD_LABELS = {
+  today: "today",
+  week: "this week",
+  month: "this month",
+  year: "this year",
+};
+
+function pickConfirmed(summary, period) {
+  if (!summary) return { total: 0, gp: 0, specialists: 0 };
+  switch (period) {
+    case "today":
+      return {
+        total: summary.confirmedToday ?? 0,
+        gp: summary.confirmedTodayGp ?? 0,
+        specialists: summary.confirmedTodaySpecialists ?? 0,
+      };
+    case "week":
+      return {
+        total: summary.confirmedThisWeek ?? 0,
+        gp: summary.confirmedThisWeekGp ?? 0,
+        specialists: summary.confirmedThisWeekSpecialists ?? 0,
+      };
+    case "year":
+      return {
+        total: summary.confirmedThisYear ?? 0,
+        gp: summary.confirmedThisYearGp ?? 0,
+        specialists: summary.confirmedThisYearSpecialists ?? 0,
+      };
+    default:
+      return {
+        total: summary.confirmedThisMonth ?? 0,
+        gp: summary.confirmedThisMonthGp ?? 0,
+        specialists: summary.confirmedThisMonthSpecialists ?? 0,
+      };
+  }
+}
+
+function pickEarnings(summary, period) {
+  if (!summary) return { total: 0, doctor: 0 };
+  switch (period) {
+    case "today":
+      return {
+        total: summary.earningsToday ?? 0,
+        doctor: summary.doctorEarningsToday ?? 0,
+      };
+    case "week":
+      return {
+        total: summary.earningsThisWeek ?? 0,
+        doctor: summary.doctorEarningsThisWeek ?? 0,
+      };
+    case "year":
+      return {
+        total: summary.earningsThisYear ?? 0,
+        doctor: summary.doctorEarningsThisYear ?? 0,
+      };
+    default:
+      return {
+        total: summary.earningsThisMonth ?? 0,
+        doctor: summary.doctorEarningsThisMonth ?? 0,
+      };
+  }
+}
 
 export default function AwadocPage() {
   const { user } = useAuth();
@@ -51,9 +113,11 @@ export default function AwadocPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(true);
+  const [bookingPeriod, setBookingPeriod] = useState("month");
+  const [earningsPeriod, setEarningsPeriod] = useState("month");
+  const [listView, setListView] = useState("confirmed");
   const [typeFilter, setTypeFilter] = useState("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
-  const [confirmedPeriod, setConfirmedPeriod] = useState("month");
   const [outboundFilter, setOutboundFilter] = useState("all");
   const [flowFilter, setFlowFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -63,9 +127,18 @@ export default function AwadocPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const confirmedStats = useMemo(
+    () => pickConfirmed(summary, bookingPeriod),
+    [summary, bookingPeriod]
+  );
+  const earningsStats = useMemo(
+    () => pickEarnings(summary, earningsPeriod),
+    [summary, earningsPeriod]
+  );
+
   useEffect(() => {
     setPage(1);
-  }, [typeFilter, specialtyFilter, confirmedPeriod, outboundFilter, flowFilter, search]);
+  }, [typeFilter, specialtyFilter, listView, bookingPeriod, outboundFilter, flowFilter, search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,17 +166,27 @@ export default function AwadocPage() {
       setLoading(true);
       setError("");
       try {
-        const result = await api.getAwadocConsultations({
+        const outboundActive = outboundFilter !== "all";
+        const params = {
           type: typeFilter !== "all" ? typeFilter : undefined,
           specialization: specialtyFilter !== "all" ? specialtyFilter : undefined,
-          confirmed: confirmedPeriod === "all" ? undefined : true,
-          confirmedPeriod: confirmedPeriod !== "all" ? confirmedPeriod : undefined,
-          outboundStatus: outboundFilter !== "all" ? outboundFilter : undefined,
+          outboundStatus: outboundActive ? outboundFilter : undefined,
           flowType: flowFilter !== "all" ? flowFilter : undefined,
           search: search || undefined,
           page,
           pageSize: PAGE_SIZE,
-        });
+        };
+
+        if (!outboundActive) {
+          if (listView === "confirmed") {
+            params.confirmed = true;
+            params.confirmedPeriod = bookingPeriod;
+          } else if (listView === "awaiting") {
+            params.confirmed = false;
+          }
+        }
+
+        const result = await api.getAwadocConsultations(params);
         if (cancelled) return;
         setRows(result.items || []);
         setTotal(result.total || 0);
@@ -123,9 +206,19 @@ export default function AwadocPage() {
     return () => {
       cancelled = true;
     };
-  }, [typeFilter, specialtyFilter, confirmedPeriod, outboundFilter, flowFilter, search, page]);
+  }, [
+    typeFilter,
+    specialtyFilter,
+    listView,
+    bookingPeriod,
+    outboundFilter,
+    flowFilter,
+    search,
+    page,
+  ]);
 
   const refreshRow = async (row) => {
+    if (!row?.id) return row;
     try {
       const detail = await api.getAwadocConsultation(row.id);
       setRows((prev) => prev.map((r) => (r.id === detail.id ? detail : r)));
@@ -146,6 +239,7 @@ export default function AwadocPage() {
       const updated = await refreshRow(row);
       setMessage(`Retry queued for request ${updated.requestId || row.requestId}.`);
       setTimeout(() => setMessage(""), 5000);
+      api.getAwadocSummary().then(setSummary).catch(() => {});
     } catch (err) {
       setError(err.message || "Retry failed");
     } finally {
@@ -154,6 +248,7 @@ export default function AwadocPage() {
   };
 
   const openDetail = async (row) => {
+    if (!row?.id) return;
     setSelected(row);
     setDetailOpen(true);
     try {
@@ -232,14 +327,20 @@ export default function AwadocPage() {
     },
   ];
 
-  const periodLabel =
-    CONFIRMED_PERIOD_OPTIONS.find((o) => o.value === confirmedPeriod)?.label || "selected period";
+  const listDescription = useMemo(() => {
+    if (outboundFilter !== "all") {
+      return `outbound status ${outboundFilter.toLowerCase()}`;
+    }
+    if (listView === "awaiting") return "awaiting confirmation";
+    if (listView === "all") return "all requests";
+    return `confirmed bookings for ${PERIOD_LABELS[bookingPeriod] || bookingPeriod}`;
+  }, [outboundFilter, listView, bookingPeriod]);
 
   return (
     <div>
       <PageHeader
         title="Awadoc"
-        description="Confirmed Awadoc appointments for GP and specialists. Filter by week or month and retry failed doctor_assigned callbacks."
+        description="Track confirmed Awadoc bookings, awaiting payments, outbound retries, and earnings."
       />
 
       {message && (
@@ -253,77 +354,98 @@ export default function AwadocPage() {
         </div>
       )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
+      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <AwadocMetricCard
           title="Confirmed bookings"
-          value={summaryLoading ? "…" : summary?.confirmedThisMonth ?? 0}
-          subtitle={`This month · GP ${summary?.confirmedThisMonthGp ?? 0} · Specialists ${summary?.confirmedThisMonthSpecialists ?? 0}`}
+          description="Paid and linked in our system"
+          value={confirmedStats.total}
+          subtitle={`GP ${confirmedStats.gp} · Specialists ${confirmedStats.specialists}`}
           icon={Radio}
+          showPeriod
+          period={bookingPeriod}
+          onPeriodChange={(p) => {
+            setBookingPeriod(p);
+            setListView("confirmed");
+            setOutboundFilter("all");
+          }}
+          loading={summaryLoading}
         />
-        <StatCard
-          title="Payment webhooks (Awadoc)"
-          value={summaryLoading ? "…" : summary?.paymentWebhooksAllTime ?? 0}
-          subtitle={`${summary?.paymentWebhooksThisMonth ?? 0} this month · Awadoc sent consultation.confirmed`}
-          icon={CheckCircle2}
-          accent="green"
-        />
-        <StatCard
-          title="Confirmed today"
-          value={summaryLoading ? "…" : summary?.confirmedToday ?? 0}
-          subtitle={`Processed in our system · GP ${summary?.confirmedTodayGp ?? 0}`}
-          icon={Radio}
-        />
-        <StatCard
-          title="Confirmed this week"
-          value={summaryLoading ? "…" : summary?.confirmedThisWeek ?? 0}
-          subtitle={`Processed in our system · GP ${summary?.confirmedThisWeekGp ?? 0}`}
-          icon={Radio}
-        />
-        <StatCard
-          title="Awaiting confirmation"
-          value={summaryLoading ? "…" : summary?.awaitingConfirmation ?? 0}
-          subtitle="Requests received, payment not confirmed yet"
-          accent="amber"
-          icon={Clock}
-        />
-        <StatCard
-          title="Earnings this week"
-          value={summaryLoading ? "…" : formatNaira(summary?.earningsThisWeek ?? 0)}
-          subtitle={`Doctor share ${formatNaira(summary?.doctorEarningsThisWeek ?? 0)}`}
+        <button
+          type="button"
+          className="text-left"
+          onClick={() => {
+            setListView("awaiting");
+            setOutboundFilter("all");
+          }}
+        >
+          <AwadocMetricCard
+            title="Awaiting confirmation"
+            description="Request received, payment not confirmed yet"
+            value={summaryLoading ? "…" : summary?.awaitingConfirmation ?? 0}
+            icon={Clock}
+            accent="amber"
+            loading={summaryLoading}
+          />
+        </button>
+        <AwadocMetricCard
+          title="Earnings"
+          description="Settled Awadoc consultation revenue"
+          value={formatNaira(earningsStats.total)}
+          subtitle={`Doctor share ${formatNaira(earningsStats.doctor)}`}
           icon={Wallet}
           accent="green"
+          showPeriod
+          period={earningsPeriod}
+          onPeriodChange={setEarningsPeriod}
+          loading={summaryLoading}
         />
-        <StatCard
-          title="Earnings this month"
-          value={summaryLoading ? "…" : formatNaira(summary?.earningsThisMonth ?? 0)}
-          subtitle={`Doctor share ${formatNaira(summary?.doctorEarningsThisMonth ?? 0)}`}
-          icon={Wallet}
-          accent="green"
-        />
-        <StatCard
-          title="Pending retries"
-          value={summaryLoading ? "…" : summary?.pendingOutboundRetries ?? 0}
-          subtitle="doctor_assigned callbacks queued to retry"
-          accent="amber"
-          icon={RefreshCw}
-        />
-        <StatCard
-          title="Exhausted outbound"
-          value={summaryLoading ? "…" : summary?.exhaustedOutbound ?? 0}
-          subtitle="All automatic retries failed — use Retry in the table"
-          accent="rose"
-          icon={RefreshCw}
-        />
+        <button
+          type="button"
+          className="text-left"
+          onClick={() => {
+            setOutboundFilter("PENDING");
+            setListView("all");
+          }}
+        >
+          <AwadocMetricCard
+            title="Pending retries"
+            description="doctor_assigned callbacks queued to retry"
+            value={summaryLoading ? "…" : summary?.pendingOutboundRetries ?? 0}
+            icon={RefreshCw}
+            accent="amber"
+            loading={summaryLoading}
+          />
+        </button>
+        <button
+          type="button"
+          className="text-left"
+          onClick={() => {
+            setOutboundFilter("EXHAUSTED");
+            setListView("all");
+          }}
+        >
+          <AwadocMetricCard
+            title="Exhausted outbound"
+            description="All automatic retries failed — use Retry in the table"
+            value={summaryLoading ? "…" : summary?.exhaustedOutbound ?? 0}
+            icon={RefreshCw}
+            accent="rose"
+            loading={summaryLoading}
+          />
+        </button>
       </div>
 
       <FilterBar>
-        <FilterField label="Confirmed period">
+        <FilterField label="Show">
           <select
             className="input-field"
-            value={confirmedPeriod}
-            onChange={(e) => setConfirmedPeriod(e.target.value)}
+            value={listView}
+            onChange={(e) => {
+              setListView(e.target.value);
+              if (e.target.value === "confirmed") setOutboundFilter("all");
+            }}
           >
-            {CONFIRMED_PERIOD_OPTIONS.map((opt) => (
+            {LIST_VIEW_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -374,17 +496,15 @@ export default function AwadocPage() {
       </FilterBar>
 
       <p className="mb-3 text-sm text-slate-500">
-        {loading
-          ? "Loading..."
-          : `${total} confirmed consultation(s) for ${periodLabel.toLowerCase()}`}
+        {loading ? "Loading..." : `${total} row(s) · ${listDescription}`}
       </p>
 
       <DataTable
         columns={columns}
         data={rows}
-        onRowClick={openDetail}
+        onRowClick={(row) => openDetail(row)}
         minWidth="1200px"
-        emptyMessage={`No confirmed Awadoc consultations for ${periodLabel.toLowerCase()}.`}
+        emptyMessage={`No Awadoc consultations for ${listDescription}.`}
       />
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

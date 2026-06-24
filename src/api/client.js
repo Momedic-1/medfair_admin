@@ -51,7 +51,11 @@ async function request(path, options = {}) {
     if (res.status === 401 && !path.includes("/auth/login")) {
       unauthorizedHandler?.();
     }
-    const message = data?.message || data?.error || (typeof data === "string" ? data : "Request failed");
+    const message =
+      data?.message ||
+      data?.exceptionMessage ||
+      data?.error ||
+      (typeof data === "string" ? data : "Request failed");
     throw new Error(message);
   }
   return data;
