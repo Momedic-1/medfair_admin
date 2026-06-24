@@ -1,7 +1,10 @@
-export function DataTable({ columns, data, emptyMessage = "No records found.", onRowClick }) {
+export function DataTable({ columns, data, emptyMessage = "No records found.", onRowClick, minWidth }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
+      <table
+        className="w-full divide-y divide-slate-200 text-sm"
+        style={minWidth ? { minWidth } : undefined}
+      >
         <thead className="bg-slate-50">
           <tr>
             {columns.map((col) => (
@@ -29,7 +32,10 @@ export function DataTable({ columns, data, emptyMessage = "No records found.", o
                 className={`transition ${onRowClick ? "cursor-pointer hover:bg-medfair/5" : "hover:bg-slate-50/80"}`}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="whitespace-nowrap px-4 py-3 text-slate-700">
+                  <td
+                    key={col.key}
+                    className={`px-4 py-3 text-slate-700 ${col.wrap ? "whitespace-normal" : "whitespace-nowrap"}`}
+                  >
                     {col.render ? col.render(row) : row[col.key]}
                   </td>
                 ))}

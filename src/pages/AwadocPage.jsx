@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Radio, RefreshCw } from "lucide-react";
+import { Radio, RefreshCw, Wallet } from "lucide-react";
 import { PageHeader, FilterBar, FilterField } from "../components/ui/PageHeader";
 import { DataTable } from "../components/ui/DataTable";
 import { Pagination } from "../components/ui/Pagination";
@@ -20,6 +20,13 @@ const SPECIALTY_OPTIONS = [
   { value: "CLINICAL_PSYCHOLOGIST", label: "Clinical Psychologist" },
   { value: "UROLOGIST", label: "Urologist" },
   { value: "EAR_NOSE_THROAT_SPECIALIST", label: "ENT" },
+];
+
+const CONFIRMED_PERIOD_OPTIONS = [
+  { value: "month", label: "This month" },
+  { value: "week", label: "This week" },
+  { value: "today", label: "Today" },
+  { value: "all", label: "All time" },
 ];
 
 const FLOW_LABELS = {
@@ -46,7 +53,7 @@ export default function AwadocPage() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
-  const [confirmedFilter, setConfirmedFilter] = useState("true");
+  const [confirmedPeriod, setConfirmedPeriod] = useState("month");
   const [outboundFilter, setOutboundFilter] = useState("all");
   const [flowFilter, setFlowFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -58,7 +65,7 @@ export default function AwadocPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [typeFilter, specialtyFilter, confirmedFilter, outboundFilter, flowFilter, search]);
+  }, [typeFilter, specialtyFilter, confirmedPeriod, outboundFilter, flowFilter, search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +84,7 @@ export default function AwadocPage() {
     return () => {
       cancelled = true;
     };
-  }, [rows]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,8 +96,8 @@ export default function AwadocPage() {
         const result = await api.getAwadocConsultations({
           type: typeFilter !== "all" ? typeFilter : undefined,
           specialization: specialtyFilter !== "all" ? specialtyFilter : undefined,
-          confirmed:
-            confirmedFilter === "all" ? undefined : confirmedFilter === "true",
+          confirmed: confirmedPeriod === "all" ? undefined : true,
+          confirmedPeriod: confirmedPeriod !== "all" ? confirmedPeriod : undefined,
           outboundStatus: outboundFilter !== "all" ? outboundFilter : undefined,
           flowType: flowFilter !== "all" ? flowFilter : undefined,
           search: search || undefined,
@@ -116,7 +123,7 @@ export default function AwadocPage() {
     return () => {
       cancelled = true;
     };
-  }, [typeFilter, specialtyFilter, confirmedFilter, outboundFilter, flowFilter, search, page]);
+  }, [typeFilter, specialtyFilter, confirmedPeriod, outboundFilter, flowFilter, search, page]);
 
   const refreshRow = async (row) => {
     try {
@@ -179,6 +186,7 @@ export default function AwadocPage() {
     {
       key: "doctorName",
       label: "Doctor / assignee",
+      wrap: true,
       render: (r) => r.doctorName || "—",
     },
     {
@@ -224,11 +232,14 @@ export default function AwadocPage() {
     },
   ];
 
+  const periodLabel =
+    CONFIRMED_PERIOD_OPTIONS.find((o) => o.value === confirmedPeriod)?.label || "selected period";
+
   return (
     <div>
       <PageHeader
         title="Awadoc"
-        description="Confirmed Awadoc appointments for GP and specialists. Retry failed doctor_assigned callbacks from here."
+        description="Confirmed Awadoc appointments for GP and specialists. Filter by week or month and retry failed doctor_assigned callbacks."
       />
 
       {message && (
@@ -242,7 +253,7 @@ export default function AwadocPage() {
         </div>
       )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <StatCard
           title="Confirmed today"
           value={summaryLoading ? "…" : summary?.confirmedToday ?? 0}
@@ -250,9 +261,30 @@ export default function AwadocPage() {
           icon={Radio}
         />
         <StatCard
-          title="Awaiting confirmation"
-          value={summaryLoading ? "…" : summary?.awaitingConfirmation ?? 0}
-          accent="amber"
+          title="Confirmed this week"
+          value={summaryLoading ? "…" : summary?.confirmedThisWeek ?? 0}
+          subtitle={`GP ${summary?.confirmedThisWeekGp ?? 0} · Specialists ${summary?.confirmedThisWeekSpecialists ?? 0}`}
+          icon={Radio}
+        />
+        <StatCard
+          title="Confirmed this month"
+          value={summaryLoading ? "…" : summary?.confirmedThisMonth ?? 0}
+          subtitle={`GP ${summary?.confirmedThisMonthGp ?? 0} · Specialists ${summary?.confirmedThisMonthSpecialists ?? 0}`}
+          icon={Radio}
+        />
+        <StatCard
+          title="Earnings this week"
+          value={summaryLoading ? "…" : formatNaira(summary?.earningsThisWeek ?? 0)}
+          subtitle={`Doctor share ${formatNaira(summary?.doctorEarningsThisWeek ?? 0)}`}
+          icon={Wallet}
+          accent="green"
+        />
+        <StatCard
+          title="Earnings this month"
+          value={summaryLoading ? "…" : formatNaira(summary?.earningsThisMonth ?? 0)}
+          subtitle={`Doctor share ${formatNaira(summary?.doctorEarningsThisMonth ?? 0)}`}
+          icon={Wallet}
+          accent="green"
         />
         <StatCard
           title="Pending retries"
@@ -260,14 +292,22 @@ export default function AwadocPage() {
           accent="amber"
           icon={RefreshCw}
         />
-        <StatCard
-          title="Exhausted outbound"
-          value={summaryLoading ? "…" : summary?.exhaustedOutbound ?? 0}
-          accent="rose"
-        />
       </div>
 
       <FilterBar>
+        <FilterField label="Confirmed period">
+          <select
+            className="input-field"
+            value={confirmedPeriod}
+            onChange={(e) => setConfirmedPeriod(e.target.value)}
+          >
+            {CONFIRMED_PERIOD_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </FilterField>
         <FilterField label="Search">
           <input
             className="input-field"
@@ -292,17 +332,6 @@ export default function AwadocPage() {
             ))}
           </select>
         </FilterField>
-        <FilterField label="Payment status">
-          <select
-            className="input-field"
-            value={confirmedFilter}
-            onChange={(e) => setConfirmedFilter(e.target.value)}
-          >
-            <option value="true">Confirmed (paid)</option>
-            <option value="false">Awaiting confirmation</option>
-            <option value="all">All</option>
-          </select>
-        </FilterField>
         <FilterField label="Flow">
           <select className="input-field" value={flowFilter} onChange={(e) => setFlowFilter(e.target.value)}>
             <option value="all">All flows</option>
@@ -323,10 +352,18 @@ export default function AwadocPage() {
       </FilterBar>
 
       <p className="mb-3 text-sm text-slate-500">
-        {loading ? "Loading..." : `${total} consultation(s)`}
+        {loading
+          ? "Loading..."
+          : `${total} confirmed consultation(s) for ${periodLabel.toLowerCase()}`}
       </p>
 
-      <DataTable columns={columns} data={rows} onRowClick={openDetail} />
+      <DataTable
+        columns={columns}
+        data={rows}
+        onRowClick={openDetail}
+        minWidth="1200px"
+        emptyMessage={`No confirmed Awadoc consultations for ${periodLabel.toLowerCase()}.`}
+      />
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
