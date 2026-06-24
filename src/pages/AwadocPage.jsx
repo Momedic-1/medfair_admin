@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock, Radio, RefreshCw, Wallet } from "lucide-react";
+import { Banknote, Clock, Radio, RefreshCw, Wallet } from "lucide-react";
 import { PageHeader, FilterBar, FilterField } from "../components/ui/PageHeader";
 import { DataTable } from "../components/ui/DataTable";
 import { Pagination } from "../components/ui/Pagination";
@@ -34,8 +34,18 @@ const FLOW_LABELS = {
   CMO: "CMO / own time",
 };
 
+const APPOINTMENT_OPTIONS = [
+  { value: "all", label: "Any appointment date" },
+  { value: "today", label: "Appointment today" },
+  { value: "tomorrow", label: "Appointment tomorrow" },
+  { value: "week", label: "Appointment this week" },
+  { value: "month", label: "Appointment this month" },
+  { value: "year", label: "Appointment this year" },
+];
+
 const PERIOD_LABELS = {
   today: "today",
+  tomorrow: "tomorrow",
   week: "this week",
   month: "this month",
   year: "this year",
@@ -97,6 +107,20 @@ function pickEarnings(summary, period) {
   }
 }
 
+function pickTotalPrice(summary, period) {
+  if (!summary) return 0;
+  switch (period) {
+    case "today":
+      return summary.totalPriceToday ?? 0;
+    case "week":
+      return summary.totalPriceThisWeek ?? 0;
+    case "year":
+      return summary.totalPriceThisYear ?? 0;
+    default:
+      return summary.totalPriceThisMonth ?? 0;
+  }
+}
+
 export default function AwadocPage() {
   const { user } = useAuth();
   const canRetry = [
@@ -115,11 +139,13 @@ export default function AwadocPage() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [bookingPeriod, setBookingPeriod] = useState("month");
   const [earningsPeriod, setEarningsPeriod] = useState("month");
+  const [pricePeriod, setPricePeriod] = useState("month");
   const [listView, setListView] = useState("confirmed");
   const [typeFilter, setTypeFilter] = useState("all");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [outboundFilter, setOutboundFilter] = useState("all");
   const [flowFilter, setFlowFilter] = useState("all");
+  const [appointmentFilter, setAppointmentFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -135,10 +161,11 @@ export default function AwadocPage() {
     () => pickEarnings(summary, earningsPeriod),
     [summary, earningsPeriod]
   );
+  const totalPrice = useMemo(() => pickTotalPrice(summary, pricePeriod), [summary, pricePeriod]);
 
   useEffect(() => {
     setPage(1);
-  }, [typeFilter, specialtyFilter, listView, bookingPeriod, outboundFilter, flowFilter, search]);
+  }, [typeFilter, specialtyFilter, listView, bookingPeriod, outboundFilter, flowFilter, appointmentFilter, search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,6 +204,10 @@ export default function AwadocPage() {
           pageSize: PAGE_SIZE,
         };
 
+        if (appointmentFilter !== "all") {
+          params.appointmentPeriod = appointmentFilter;
+        }
+
         if (!outboundActive) {
           if (listView === "confirmed") {
             params.confirmed = true;
@@ -213,6 +244,7 @@ export default function AwadocPage() {
     bookingPeriod,
     outboundFilter,
     flowFilter,
+    appointmentFilter,
     search,
     page,
   ]);
@@ -328,13 +360,24 @@ export default function AwadocPage() {
   ];
 
   const listDescription = useMemo(() => {
+    const appointmentLabel =
+      appointmentFilter !== "all"
+        ? `appointment ${PERIOD_LABELS[appointmentFilter] || appointmentFilter}`
+        : null;
     if (outboundFilter !== "all") {
-      return `outbound status ${outboundFilter.toLowerCase()}`;
+      return appointmentLabel
+        ? `outbound ${outboundFilter.toLowerCase()} · ${appointmentLabel}`
+        : `outbound status ${outboundFilter.toLowerCase()}`;
     }
-    if (listView === "awaiting") return "awaiting confirmation";
-    if (listView === "all") return "all requests";
-    return `confirmed bookings for ${PERIOD_LABELS[bookingPeriod] || bookingPeriod}`;
-  }, [outboundFilter, listView, bookingPeriod]);
+    if (listView === "awaiting") {
+      return appointmentLabel ? `awaiting confirmation · ${appointmentLabel}` : "awaiting confirmation";
+    }
+    if (listView === "all") {
+      return appointmentLabel ? `all requests · ${appointmentLabel}` : "all requests";
+    }
+    const confirmedLabel = `confirmed bookings for ${PERIOD_LABELS[bookingPeriod] || bookingPeriod}`;
+    return appointmentLabel ? `${confirmedLabel} · ${appointmentLabel}` : confirmedLabel;
+  }, [outboundFilter, listView, bookingPeriod, appointmentFilter]);
 
   return (
     <div>
@@ -397,6 +440,18 @@ export default function AwadocPage() {
           showPeriod
           period={earningsPeriod}
           onPeriodChange={setEarningsPeriod}
+          loading={summaryLoading}
+        />
+        <AwadocMetricCard
+          title="Total booking value"
+          description="Sum of confirmed consultation prices (₦)"
+          value={formatNaira(totalPrice)}
+          subtitle="Listed price at booking — not settled earnings"
+          icon={Banknote}
+          accent="green"
+          showPeriod
+          period={pricePeriod}
+          onPeriodChange={setPricePeriod}
           loading={summaryLoading}
         />
         <button
@@ -482,6 +537,19 @@ export default function AwadocPage() {
             <option value="GP_CMO">GP (CMO)</option>
             <option value="SPECIALIST_SLOT">Specialist slot</option>
             <option value="CMO">CMO / own time</option>
+          </select>
+        </FilterField>
+        <FilterField label="Appointment">
+          <select
+            className="input-field"
+            value={appointmentFilter}
+            onChange={(e) => setAppointmentFilter(e.target.value)}
+          >
+            {APPOINTMENT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
         </FilterField>
         <FilterField label="Outbound status">

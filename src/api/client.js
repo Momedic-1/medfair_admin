@@ -52,7 +52,7 @@ async function request(path, options = {}) {
       unauthorizedHandler?.();
     }
     const message =
-      data?.message ||
+      (data?.message && data.message !== "An error occurred" ? data.message : null) ||
       data?.exceptionMessage ||
       data?.error ||
       (typeof data === "string" ? data : "Request failed");
